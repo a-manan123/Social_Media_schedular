@@ -14,6 +14,9 @@ import dashboardRoutes from "./routes/dashboardRoutes.js";
 // Middleware
 import { errorHandler } from "./middleware/errorHandler.js";
 
+import path from "path";
+import { fileURLToPath } from "url";
+
 dotenv.config();
 
 // Connect to MongoDB BEFORE starting server
@@ -22,12 +25,12 @@ connectDB();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware order matters — keep these first
-app.use(express.json()); // Parse JSON body with size limit
-app.use(express.urlencoded({ extended: true })); // Parse URL-encoded
-app.use(cookieParser()); // Parse cookies
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-//  CORS setup (for frontend + cookies)
+// CORS setup
 const allowedOrigins = process.env.FRONTEND_URL
   ? process.env.FRONTEND_URL.split(",").map((url) => url.trim())
   : [];
@@ -35,10 +38,8 @@ const allowedOrigins = process.env.FRONTEND_URL
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
 
-      // In development, allow any localhost origin
       if (process.env.NODE_ENV !== "production") {
         if (
           origin.startsWith("http://localhost:") ||
@@ -48,12 +49,10 @@ app.use(
         }
       }
 
-      // Check against allowed origins (for production or specific URLs)
       if (allowedOrigins.length > 0 && allowedOrigins.indexOf(origin) !== -1) {
         return callback(null, true);
       }
 
-      // Default: allow if no specific origins configured (development fallback)
       if (allowedOrigins.length === 0) {
         return callback(null, true);
       }
@@ -64,25 +63,39 @@ app.use(
   })
 );
 
-//  Health check
-app.get("/", (req, res) => {
+// Health check
+app.get("/api/health", (req, res) => {
   res
     .status(200)
     .json({ message: "✅ Social Media Scheduler Backend is running..." });
 });
 
-//  Routes
+// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 
-//  Global error handler
+// Global error handler
 app.use(errorHandler);
 
+// Serve React frontend in production
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(path.join(__dirname, "../../frontend/dist"))); // Vite build folder
+  // For CRA: "../../frontend/build"
+
+  app.get("*", (req, res) => {
+    res.sendFile(path.resolve(__dirname, "../../frontend/dist", "index.html"));
+  });
+}
+
+// Start scheduler
 console.log("Scheduler started");
 startScheduler();
 
-//  Start server AFTER setup
+// Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
