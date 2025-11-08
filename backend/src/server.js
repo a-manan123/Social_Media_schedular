@@ -16,6 +16,7 @@ import { errorHandler } from "./middleware/errorHandler.js";
 
 import path from "path";
 import { fileURLToPath } from "url";
+import { join } from "path";
 
 dotenv.config();
 
@@ -88,11 +89,8 @@ if (process.env.NODE_ENV === "production") {
 
   app.use(express.static(frontendPath));
 
-  app.get("*", (req, res) => {
-    // If request is not /api/*, serve React index.html
-    if (!req.path.startsWith("/api")) {
-      res.sendFile(path.join(frontendPath, "index.html"));
-    }
+  app.get(/^(?!\/api).*$/, (req, res) => {
+    res.sendFile(join(frontendPath, "index.html"));
   });
 }
 
